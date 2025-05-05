@@ -1,0 +1,36 @@
+{
+  "name": "aws-handson-auto-codereview",
+  "version": "1.0.0",
+  "main": "index.js",
+  "config": {
+    "identifier": "CodeReviewDemo",
+    "s3bucket": {
+      "template": "tetete-template-bucket-test",
+      "lambda": "tetete-deploy-bucket-test"
+    }
+  },
+  "scripts": {
+    "setup": "ts-node scripts/setup.ts",
+    "build": "esbuild lambda/src/handler.ts --bundle --platform=node --target=node22 --outdir=lambda/dist --sourcemap",
+    "zip": "npm run build && cd lambda && zip -r codereview.zip dist",
+    "upload": "ts-node scripts/upload.ts",
+    "deploy": "ts-node scripts/deploy.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.798.0",
+    "@aws-sdk/client-codecommit": "^3.798.0",
+    "@types/diff": "^7.0.2",
+    "@types/dotenv": "^8.2.3",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.15.3",
+    "dotenv": "^16.5.0",
+    "esbuild": "^0.25.3",
+    "ts-jest": "^29.3.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}

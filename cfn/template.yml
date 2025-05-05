@@ -1,0 +1,125 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploys a CodeCommit + Lambda-based automated code review bot using Amazon Bedrock.
+
+Parameters:
+  Identifier:
+    Type: String
+    Description: "Prefix for naming all AWS resources (e.g., MyDevEnv)."
+
+  CodeBucket:
+    Type: String
+    Description: "The name of the S3 bucket where the Lambda deployment package (codereview.zip) is stored."
+
+  ModelId:
+    Type: String
+    Default: "amazon.titan-text-express-v1"
+    Description: "The Bedrock model ID to use."
+
+  MaxTokens:
+    Type: Number
+    Default: 1024
+    Description: "Maximum number of tokens to generate from Bedrock model."
+
+  DiffMaxResults:
+    Type: Number
+    Default: 10
+    Description: "Maximum number of code differences to retrieve from CodeCommit."
+
+Resources:
+  BedrockReviewRepository:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName: !Sub "${Identifier}-review-repo"
+      RepositoryDescription: "Repository for Bedrock-based code review automation."
+
+  BedrockLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Identifier}-bedrock-lambda-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: !Sub "${Identifier}-bedrock-lambda-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "arn:aws:logs:*:*:*"
+              - Effect: "Allow"
+                Action:
+                  - "codecommit:GetPullRequest"
+                  - "codecommit:GetDifferences"
+                  - "codecommit:GetBlob"
+                  - "codecommit:PostCommentForPullRequest"
+                Resource: !GetAtt BedrockReviewRepository.Arn
+              - Effect: "Allow"
+                Action:
+                  - "bedrock:InvokeModel"
+                Resource: "*"
+
+  BedrockReviewLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${Identifier}-bedrock-review-function"
+      Handler: "dist/handler.handler"
+      Runtime: "nodejs22.x"
+      Role: !GetAtt BedrockLambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: "codereview.zip"
+      Timeout: 60
+      Environment:
+        Variables:
+          MODEL_ID: !Ref ModelId
+          MAX_TOKENS: !Ref MaxTokens
+          DIFF_MAX_RESULTS: !Ref DiffMaxResults
+
+  BedrockReviewEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${Identifier}-pr-review-rule"
+      Description: "Triggers the Lambda function when any pull request is created or updated."
+      EventPattern:
+        source:
+          - "aws.codecommit"
+        detail-type:
+          - "CodeCommit Pull Request State Change"
+        detail:
+          event:
+            - "pullRequestCreated"
+            - "pullRequestSourceBranchUpdated"
+        resources:
+          - !GetAtt BedrockReviewRepository.Arn
+      Targets:
+        - Id: "BedrockReviewLambdaTarget"
+          Arn: !GetAtt BedrockReviewLambdaFunction.Arn
+
+  LambdaInvokePermissionForEventBridge:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref BedrockReviewLambdaFunction
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt BedrockReviewEventRule.Arn
+
+Outputs:
+  RepositoryName:
+    Description: "The name of the created CodeCommit repository."
+    Value: !Ref BedrockReviewRepository
+
+  LambdaFunctionName:
+    Description: "The name of the deployed Lambda function."
+    Value: !Ref BedrockReviewLambdaFunction
+
+  EventRuleName:
+    Description: "The name of the EventBridge rule that triggers the Lambda function."
+    Value: !Ref BedrockReviewEventRule
