@@ -20,8 +20,8 @@ AWS CodeCommitでdevelopブランチにプルリクエストを作成した際�
 ### 構築方法
 - 1. このリポジトリのソースをclone
 - 1. .envのパラメタを修正
-- 1. このリポジトリのソースをclone
-- 1. このリポジトリのソースをclone
+- 1. Lambda関数用のソースのビルド＆アップロード
+- 1. CloudFormationで各種リソースの配備
 
 ## 参考
-- [](https://tetete-home.com/article/1198)
+- [Amazon Bedrock + Lambdaを使って自動コードレビューBotを構築する](https://tetete-home.com/article/1198)
