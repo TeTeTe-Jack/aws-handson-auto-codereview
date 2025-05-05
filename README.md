@@ -16,6 +16,7 @@ AWS CodeCommitでdevelopブランチにプルリクエストを作成した際�
 - AWSアカウント
 - AWS CLI実行環境（各種設定が可能なIAMユーザの設定を含む）
 - Amazon Bedrockの有効化
+- Node実行環境
 
 ### 構築方法
 - 1. このリポジトリのソースをclone
